@@ -13,6 +13,7 @@
 #include "../objects/player.hpp"
 #include "../include/contants.hpp"
 #include "../3libs/SimplexNoise.h"
+#include "./block_manager.hpp"
 
 class TerrainManager
 {
@@ -27,25 +28,20 @@ public:
 
     TextureRepository *texRepo;
     Engine *engine;
-
 private:
     Chunck *chunck;
     u64 *terrain = new u64[OVERWORLD_SIZE];
     Vector3 lastPlayerPosition;
-
-    // TODO: Refactor to BlockManager entity;
-    // Blocks meshes
-    Mesh stoneBlock;
-    Mesh dirtBlock;
-    Mesh grassBlock;
-    Mesh waterBlock;
+    std::vector<Block *> tempBlocks;
+    BlockManager *blockManager = new BlockManager();
 
     // Params for noise generation;
-    float frequency = .07f;
-    float amplitude = 0.5f;
-    float lacunarity = 1.99f;
-    float persistance = 0.5;
-    unsigned int seed = rand() % 10000; // 237;
+    const float scale =  10;//32.0f;
+    const float frequency = 0.007;
+    const float amplitude = 0.5f;
+    const float lacunarity = 2.4f;
+    const float persistance = .45f;
+    const unsigned int seed = rand() % 10000; // 237;
 
     void buildChunk(int offsetX, int offsetY, int offsetZ);
     int getBlockTypeByPosition(int x, int y, int z);
@@ -53,9 +49,9 @@ private:
     Vector3 *getPositionByIndex(unsigned int index);
     bool isBlockHidden(int x, int y, int z);
     inline bool isBlockVisible(int x, int y, int z){return !isBlockHidden(x, y, z);};
-    void loadBlocks();
-    void linkTextureByBlockType(int blockType, const u32 t_meshId);
-    Mesh &getMeshByBlockType(int blockType);
+    
+    void clearTempBlocks();
+    
     int getBlock(int x, int y, int z);
     SimplexNoise *simplex = new SimplexNoise(frequency, amplitude, lacunarity, persistance);
 };

@@ -1,10 +1,11 @@
 EE_BIN = tyracraft.elf
 
-# TYRA_DIR = ./../../engine #Reads from ENV: $TYRA_DIR
+TYRA_DIR = $(TYRA)
 
 EE_OBJS =											\
 	3libs/SimplexNoise.o							\
 	managers/terrain_manager.o						\
+	managers/block_manager.o						\
 	objects/World.o									\
 	objects/Block.o									\
 	objects/chunck.o								\
@@ -38,4 +39,4 @@ run: $(EE_BIN)
 	rm $(EE_OBJS)
 	ps2client execee host:$(EE_BIN)
 
-include $(TYRA_DIR)/Makefile.pref
+include ./Makefile.pref

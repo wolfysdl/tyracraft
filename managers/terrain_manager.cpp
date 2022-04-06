@@ -23,7 +23,7 @@ void TerrainManager::init(Engine *t_engine)
         terrainType = 2;
 
     this->chunck = new Chunck(engine);
-    this->loadBlocks();
+    this->blockManager->init(texRepo);
     this->generateNewTerrain(terrainType, false, false, false, false);
 }
 
@@ -48,12 +48,11 @@ void TerrainManager::generateNewTerrain(int terrainType, bool makeFlat, bool mak
 
 int TerrainManager::getBlock(int x, int y, int z)
 {
-    int octaves = 1;
-    const int scale = 5;
+    int octaves = sqrt(OVERWORLD_H_DISTANCE * OVERWORLD_V_DISTANCE);
 
-    double noiseLayer1 = simplex->fractal(octaves, x * this->seed, z * this->seed);
-    double noiseLayer2 = simplex->fractal(octaves += 5, x * this->seed, z * this->seed);
-    double noiseLayer3 = simplex->fractal(octaves += 10, x * this->seed, z * this->seed);
+    double noiseLayer1 = simplex->fractal(octaves, x + seed, z + seed);
+    double noiseLayer2 = simplex->fractal(octaves /= 2, x + seed, z + seed);
+    double noiseLayer3 = simplex->fractal(octaves /= 2, x + seed, z + seed);
     double noise = floor((((noiseLayer1 + noiseLayer2 + noiseLayer3) / 3) * scale));
 
     if (y < noise)
@@ -152,11 +151,11 @@ Vector3 *TerrainManager::getPositionByIndex(unsigned int index)
 
 void TerrainManager::updateChunkByPlayerPosition(Player *player)
 {
-    // Update chunck when player moves three blocks
-    if (this->lastPlayerPosition.distanceTo(player->getPosition()) > BLOCK_SIZE * 3)
+    // Update chunck when player moves a quarter chunck
+    if (this->lastPlayerPosition.distanceTo(player->getPosition()) > BLOCK_SIZE * CHUNCK_SIZE / 4)
     {
-        printf("(Re)Building chunck...\n");
         this->lastPlayerPosition = player->getPosition();
+        this->clearTempBlocks();
         this->chunck->clear();
         this->buildChunk(
             floor(player->getPosition().x / (BLOCK_SIZE * 2)),
@@ -187,68 +186,50 @@ void TerrainManager::buildChunk(int offsetX, int offsetY, int offsetZ)
                     (offsetY + y >= OVERWORLD_MIN_HEIGH && offsetY + y < OVERWORLD_MAX_HEIGH) &&
                     (offsetZ + z >= OVERWORLD_MIN_DISTANCE && offsetZ + z < OVERWORLD_MAX_DISTANCE))
                 {
+                    Vector3 *tempBlockPos = new Vector3(offsetX + x,
+                                                        offsetY + y,
+                                                        offsetZ + z);
+
                     int block_type = this->getBlockTypeByPosition(
-                        offsetX + x,
-                        offsetY + y,
-                        offsetZ + z);
+                        tempBlockPos->x,
+                        tempBlockPos->y,
+                        tempBlockPos->z);
 
                     if (
                         block_type != AIR_BLOCK &&
                         this->isBlockVisible(offsetX + x, offsetY + y, offsetZ + z))
                     {
                         Block *tempBlock = new Block(block_type);
-                        tempBlock->mesh.position.set(
-                            (offsetX + x) * BLOCK_SIZE * 2,
-                            (offsetY + y) * -(BLOCK_SIZE * 2),
-                            (offsetZ + z) * -(BLOCK_SIZE * 2));
-                        tempBlock->mesh.loadFrom(getMeshByBlockType(block_type));
+
+                        tempBlock->mesh.position.set((tempBlockPos->x) * BLOCK_SIZE * 2,
+                                                     (tempBlockPos->y) * -(BLOCK_SIZE * 2),
+                                                     (tempBlockPos->z) * -(BLOCK_SIZE * 2));
+                        tempBlock->mesh.loadFrom(this->blockManager->getMeshByBlockType(block_type));
                         tempBlock->mesh.shouldBeFrustumCulled = true;
                         tempBlock->mesh.shouldBeBackfaceCulled = false;
-                        linkTextureByBlockType(block_type, tempBlock->mesh.getMaterial(0).getId());
+                        this->blockManager->linkTextureByBlockType(block_type, tempBlock->mesh.getMaterial(0).getId());
                         this->chunck->add(tempBlock);
+                        this->tempBlocks.push_back(tempBlock);
                     }
+
+                    delete tempBlockPos;
                 }
             }
         }
     }
 }
 
-void TerrainManager::update(){};
-
-void TerrainManager::loadBlocks()
+/**
+ * @brief Clear temp blocks ref before rebuild chunck to prevent memory leak;
+ */
+void TerrainManager::clearTempBlocks()
 {
-    char *MODELS_PATH = "meshes/block/";
-    char *TEXTURES_PATH = "assets/textures/block/";
-
-    // Load models:
-    stoneBlock.loadObj(MODELS_PATH, "stone", BLOCK_SIZE, false);
-    dirtBlock.loadObj(MODELS_PATH, "dirt", BLOCK_SIZE, false);
-    grassBlock.loadObj(MODELS_PATH, "grass", BLOCK_SIZE, false);
-    waterBlock.loadObj(MODELS_PATH, "water", BLOCK_SIZE, false);
-
-    // Load model's Textures:
-    texRepo->addByMesh(TEXTURES_PATH, stoneBlock, PNG);
-    texRepo->addByMesh(TEXTURES_PATH, dirtBlock, PNG);
-    texRepo->addByMesh(TEXTURES_PATH, grassBlock, PNG);
-    texRepo->addByMesh(TEXTURES_PATH, waterBlock, PNG);
-}
-
-void TerrainManager::linkTextureByBlockType(int blockType, const u32 t_meshId)
-{
-    texRepo->getBySpriteOrMesh(getMeshByBlockType(blockType).getMaterial(0).getId())->addLink(t_meshId);
-}
-
-Mesh &TerrainManager::getMeshByBlockType(int blockType)
-{
-    switch (blockType)
+    for (size_t i = 0; i < this->tempBlocks.size(); i++)
     {
-    case DIRTY_BLOCK:
-        return dirtBlock;
-    case STONE_BLOCK:
-        return stoneBlock;
-    case GRASS_BLOCK:
-        return grassBlock;
-    case WATER_BLOCK:
-        return waterBlock;
+        delete this->tempBlocks[i];
     }
-}
+    this->tempBlocks.clear();
+    this->tempBlocks.shrink_to_fit();
+};
+
+void TerrainManager::update(){};
