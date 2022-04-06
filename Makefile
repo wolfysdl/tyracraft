@@ -1,4 +1,4 @@
-EE_BIN = bin/tyracraft.elf
+EE_BIN = tyracraft.elf
 
 # TYRA_DIR = ./../../engine #Reads from ENV: $TYRA_DIR
 
@@ -19,28 +19,23 @@ EE_LIBS = -ltyra
 
 all: $(EE_BIN)
 	$(EE_STRIP) --strip-all $(EE_BIN)
-#	mv $(EE_BIN) bin/$(EE_BIN) 
-	rm $(EE_OBJS)
-
-sync-assets:
+	mkdir bin/
+	mv $(EE_BIN) bin/$(EE_BIN)
 	cp -a assets/* bin/
+	rm $(EE_OBJS)
 
 rebuild-engine:
 	cd $(TYRA_DIR) && make clean && make
 
 clean:
-	rm -f $(EE_OBJS)
-
-rebuild:
-	make clean && make all && make sync-assets
+	rm -fr bin/ $(EE_OBJS)
 
 run: $(EE_BIN)
 	killall -v ps2client || true
 	ps2client reset
 	ps2client reset
 	$(EE_STRIP) --strip-all $(EE_BIN)
-#	mv $(EE_BIN) bin/$(EE_BIN)
 	rm $(EE_OBJS)
-	cd bin/ && ps2client execee host:$(EE_BIN)
+	ps2client execee host:$(EE_BIN)
 
 include $(TYRA_DIR)/Makefile.pref
