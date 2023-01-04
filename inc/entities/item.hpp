@@ -5,7 +5,8 @@
 
 using Tyra::Sprite;
 
-class Item {
+//adding struct instead of class
+struct Item {
  public:
   Item();
   ~Item();
